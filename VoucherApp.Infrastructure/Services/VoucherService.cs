@@ -66,6 +66,13 @@ namespace VoucherApp.Infrastructure.Services
             return await _context.Vouchers.FirstOrDefaultAsync(v => v.ShortCode == code);
         }
 
+        public async Task<Voucher> GetVoucherWithTemplateByCodeAsync(string code)
+        {
+            return await _context.Vouchers
+                .Include(v => v.RewardTemplate)
+                .FirstOrDefaultAsync(v => v.ShortCode == code);
+        }
+
         public async Task UseVoucherAsync(int voucherId)
         {
             var voucher = await _context.Vouchers.FindAsync(voucherId);

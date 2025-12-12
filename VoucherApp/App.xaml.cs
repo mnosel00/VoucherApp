@@ -1,8 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using System;
-using System.Configuration;
-using System.Data;
 using System.Windows;
 using VoucherApp.Core.Interfaces;
 using VoucherApp.Infrastructure.Data;
@@ -10,40 +10,54 @@ using VoucherApp.Infrastructure.Services;
 
 namespace VoucherApp
 {
-    /// <summary>
-    /// Interaction logic for App.xaml
-    /// </summary>
     public partial class App : Application
     {
-        public IServiceProvider Services { get; }
+        private readonly IHost _host;
+
         public App()
         {
-            var services = new ServiceCollection();
+            _host = Host.CreateDefaultBuilder()
+                .ConfigureServices((context, services) =>
+                {
+                    ConfigureServices(context.Configuration, services);
+                })
+                .Build();
+        }
 
+        private void ConfigureServices(IConfiguration configuration, IServiceCollection services)
+        {
             services.AddDbContext<AppDbContext>(options =>
-                options.UseSqlServer("Server=.;Database=VoucherDb;Trusted_Connection=True;TrustServerCertificate=True;"));
+                options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
 
             services.AddScoped<IVoucherService, VoucherService>();
-
-            // Rejestrujemy ViewModel i MainWindow jako Transient.
             services.AddTransient<MainViewModel>();
             services.AddTransient<MainWindow>();
-
-            Services = services.BuildServiceProvider();
         }
 
-        protected override void OnStartup(StartupEventArgs e)
+        protected override async void OnStartup(StartupEventArgs e)
         {
-            // Automatyczna migracja bazy przy starcie (dla wygody deweloperskiej)
-            using (var scope = Services.CreateScope())
+            await _host.StartAsync();
+
+            using (var scope = _host.Services.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                context.Database.EnsureCreated();
+                context.Database.Migrate();
 
-                var mainWindow = scope.ServiceProvider.GetRequiredService<MainWindow>();
+                var mainWindow = _host.Services.GetRequiredService<MainWindow>();
                 mainWindow.Show();
             }
+
+            base.OnStartup(e);
+        }
+
+        protected override async void OnExit(ExitEventArgs e)
+        {
+            using (_host)
+            {
+                await _host.StopAsync(TimeSpan.FromSeconds(5));
+            }
+
+            base.OnExit(e);
         }
     }
-
 }
