@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="VoucherApp.Core/VoucherApp.Core.csproj" />
+  <Project Path="VoucherApp.Infrastructure/VoucherApp.Infrastructure.csproj" />
+  <Project Path="VoucherApp/VoucherApp.csproj" />
+</Solution>
