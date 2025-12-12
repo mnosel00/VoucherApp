@@ -1,5 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using VoucherApp.Core.Entities;
 using VoucherApp.Core.Interfaces;
@@ -18,19 +20,28 @@ namespace VoucherApp.Infrastructure.Services
 
         public async Task<Voucher> CreateVoucherAsync(string code, string description)
         {
-            // Sprawdzamy, czy voucher o danym kodzie już istnieje
-            var existingVoucher = await _context.Vouchers.FirstOrDefaultAsync(v => v.Code == code);
+            var existingVoucher = await _context.Vouchers.FirstOrDefaultAsync(v => v.ShortCode == code);
             if (existingVoucher != null)
             {
-                // Zwracamy null, jeśli kod nie jest unikalny
+                return null;
+            }
+
+            // Zakładam, że istnieje domyślny RewardTemplate. W przyszłości można to rozbudować.
+            var defaultRewardTemplate = await _context.RewardTemplates.FirstOrDefaultAsync();
+            if (defaultRewardTemplate == null)
+            {
+                // Jeśli nie ma szablonu, nie można utworzyć vouchera.
+                // Można tu rzucić wyjątek lub zwrócić null.
                 return null;
             }
 
             var voucher = new Voucher
             {
-                Code = code,
-                Description = description,
-                IsUsed = false
+                ShortCode = code,
+                RewardTemplateId = defaultRewardTemplate.Id,
+                QrCodeContent = Guid.NewGuid(), // Generujemy unikalny identyfikator dla kodu QR
+                IsRedeemed = false,
+                CreatedAt = DateTime.UtcNow
             };
 
             _context.Vouchers.Add(voucher);
@@ -40,21 +51,28 @@ namespace VoucherApp.Infrastructure.Services
 
         public async Task<IEnumerable<Voucher>> GetAllVouchersAsync()
         {
-            // Pobieramy wszystkie vouchery, sortując od najnowszych
-            return await _context.Vouchers.OrderByDescending(v => v.Id).ToListAsync();
+            // Dołączamy RewardTemplate, aby mieć dostęp do opisu
+            return await _context.Vouchers
+                .Include(v => v.RewardTemplate)
+                .OrderByDescending(v => v.Id)
+                .ToListAsync();
         }
 
         public async Task<Voucher> GetVoucherByCodeAsync(string code)
         {
-            return await _context.Vouchers.FirstOrDefaultAsync(v => v.Code == code);
+            return await _context.Vouchers
+                .Include(v => v.RewardTemplate)
+                .FirstOrDefaultAsync(v => v.ShortCode == code);
         }
 
         public async Task UseVoucherAsync(int voucherId)
         {
             var voucher = await _context.Vouchers.FindAsync(voucherId);
-            if (voucher != null && !voucher.IsUsed)
+            // Używamy 'IsRedeemed' zamiast 'IsUsed'
+            if (voucher != null && !voucher.IsRedeemed)
             {
-                voucher.IsUsed = true;
+                voucher.IsRedeemed = true;
+                voucher.RedeemedAt = DateTime.UtcNow; // Ustawiamy datę wykorzystania
                 await _context.SaveChangesAsync();
             }
         }

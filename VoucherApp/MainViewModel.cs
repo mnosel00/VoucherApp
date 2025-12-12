@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using VoucherApp.Core.Entities;
 using VoucherApp.Core.Interfaces;
-using VoucherApp.Core.Models;
 
 namespace VoucherApp
 {
@@ -59,6 +59,9 @@ namespace VoucherApp
                     FilterVouchers();
                 }
             };
+
+            // Automatycznie ładuj dane przy starcie
+            LoadVouchersCommand.Execute(null);
         }
 
         private async Task LoadVouchersAsync()
@@ -75,7 +78,8 @@ namespace VoucherApp
             FilteredVouchers.Clear();
             var filtered = string.IsNullOrWhiteSpace(FilterText)
                 ? _allVouchers
-                : _allVouchers.Where(v => v.Code.Contains(FilterText, System.StringComparison.OrdinalIgnoreCase));
+                // Używamy ShortCode zamiast Code
+                : _allVouchers.Where(v => v.ShortCode.Contains(FilterText, System.StringComparison.OrdinalIgnoreCase));
 
             foreach (var voucher in filtered)
             {
@@ -92,13 +96,12 @@ namespace VoucherApp
                 return;
             }
 
-            // 3. Unikalny kod - serwis powinien to zweryfikować
             var newVoucher = await _voucherService.CreateVoucherAsync(NewVoucherCode, NewVoucherDescription);
             if (newVoucher != null)
             {
-                _allVouchers.Add(newVoucher);
-                FilterVouchers();
-                StatusMessage = $"Dodano nowy voucher: {newVoucher.Code}";
+                // Musimy ponownie załadować vouchery, aby mieć pewność, że powiązany RewardTemplate jest dołączony
+                await LoadVouchersAsync(); 
+                StatusMessage = $"Dodano nowy voucher: {newVoucher.ShortCode}";
                 StatusColor = Brushes.Blue;
                 NewVoucherCode = string.Empty;
                 NewVoucherDescription = string.Empty;
@@ -114,14 +117,16 @@ namespace VoucherApp
         {
             if (voucher == null) return;
 
-            // 4. Monit o potwierdzenie
-            var result = MessageBox.Show($"Czy na pewno chcesz wykorzystać voucher '{voucher.Code}'?", "Potwierdzenie", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            // Używamy ShortCode zamiast Code
+            var result = MessageBox.Show($"Czy na pewno chcesz wykorzystać voucher '{voucher.ShortCode}'?", "Potwierdzenie", MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (result == MessageBoxResult.Yes)
             {
                 await _voucherService.UseVoucherAsync(voucher.Id);
-                voucher.IsUsed = true; // Aktualizujemy stan w UI
-                FilterVouchers(); // Odświeżamy widok, aby pokazać zmianę
-                StatusMessage = $"Wykorzystano voucher: {voucher.Code}";
+                // Używamy IsRedeemed zamiast IsUsed
+                voucher.IsRedeemed = true; 
+                // Odświeżamy widok, aby pokazać zmianę (np. zmianę koloru lub statusu)
+                OnPropertyChanged(nameof(FilteredVouchers));
+                StatusMessage = $"Wykorzystano voucher: {voucher.ShortCode}";
                 StatusColor = Brushes.DarkGoldenrod;
             }
         }
