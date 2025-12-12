@@ -26,14 +26,10 @@
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="Kod:" VerticalAlignment="Center" Margin="5"/>
-                    <TextBox Grid.Column="1" Text="{Binding NewVoucherCode, UpdateSourceTrigger=PropertyChanged}" Margin="5"/>
-                    <TextBlock Grid.Column="2" Text="Opis:" VerticalAlignment="Center" Margin="5"/>
-                    <TextBox Grid.Column="3" Text="{Binding NewVoucherDescription, UpdateSourceTrigger=PropertyChanged}" Margin="5"/>
-                    <Button Grid.Column="4" Content="Dodaj" Command="{Binding AddVoucherCommand}" Padding="10,5" Margin="5"/>
+                    <TextBlock Text="Opis:" VerticalAlignment="Center" Margin="5"/>
+                    <TextBox Grid.Column="1" Text="{Binding NewVoucherDescription, UpdateSourceTrigger=PropertyChanged}" Margin="5"/>
+                    <Button Grid.Column="2" Content="Dodaj" Command="{Binding AddVoucherCommand}" Padding="10,5" Margin="5"/>
                 </Grid>
             </StackPanel>
         </GroupBox>

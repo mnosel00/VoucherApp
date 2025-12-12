@@ -18,30 +18,37 @@ namespace VoucherApp.Infrastructure.Services
             _context = context;
         }
 
-        public async Task<Voucher> CreateVoucherAsync(string code, string description)
+        private async Task<string> GenerateUniqueShortCodeAsync()
         {
-            var existingVoucher = await _context.Vouchers.FirstOrDefaultAsync(v => v.ShortCode == code);
-            if (existingVoucher != null)
+            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            var random = new Random();
+            string code;
+            do
             {
-                return null;
-            }
+                code = new string(Enumerable.Repeat(chars, 8)
+                    .Select(s => s[random.Next(s.Length)]).ToArray());
+            } while (await _context.Vouchers.AnyAsync(v => v.ShortCode == code));
 
-            // Zakładam, że istnieje domyślny RewardTemplate. W przyszłości można to rozbudować.
-            var defaultRewardTemplate = await _context.RewardTemplates.FirstOrDefaultAsync();
-            if (defaultRewardTemplate == null)
+            return code;
+        }
+
+        public async Task<Voucher> CreateVoucherAsync(string description)
+        {
+            var code = await GenerateUniqueShortCodeAsync();
+
+            var rewardTemplate = await _context.RewardTemplates.FirstOrDefaultAsync(rt => rt.Name == description);
+            if (rewardTemplate == null)
             {
-                // Jeśli nie ma szablonu, nie można utworzyć vouchera.
-                // Można tu rzucić wyjątek lub zwrócić null.
-                return null;
+                rewardTemplate = new RewardTemplate { Name = description };
+                _context.RewardTemplates.Add(rewardTemplate);
             }
 
             var voucher = new Voucher
             {
                 ShortCode = code,
-                RewardTemplateId = defaultRewardTemplate.Id,
-                QrCodeContent = Guid.NewGuid(), // Generujemy unikalny identyfikator dla kodu QR
-                IsRedeemed = false,
-                CreatedAt = DateTime.UtcNow
+                RewardTemplate = rewardTemplate,
+                QrCodeContent = Guid.NewGuid(),
+                IsRedeemed = false
             };
 
             _context.Vouchers.Add(voucher);
@@ -51,28 +58,21 @@ namespace VoucherApp.Infrastructure.Services
 
         public async Task<IEnumerable<Voucher>> GetAllVouchersAsync()
         {
-            // Dołączamy RewardTemplate, aby mieć dostęp do opisu
-            return await _context.Vouchers
-                .Include(v => v.RewardTemplate)
-                .OrderByDescending(v => v.Id)
-                .ToListAsync();
+            return await _context.Vouchers.Include(v => v.RewardTemplate).OrderByDescending(v => v.Id).ToListAsync();
         }
 
         public async Task<Voucher> GetVoucherByCodeAsync(string code)
         {
-            return await _context.Vouchers
-                .Include(v => v.RewardTemplate)
-                .FirstOrDefaultAsync(v => v.ShortCode == code);
+            return await _context.Vouchers.FirstOrDefaultAsync(v => v.ShortCode == code);
         }
 
         public async Task UseVoucherAsync(int voucherId)
         {
             var voucher = await _context.Vouchers.FindAsync(voucherId);
-            // Używamy 'IsRedeemed' zamiast 'IsUsed'
             if (voucher != null && !voucher.IsRedeemed)
             {
                 voucher.IsRedeemed = true;
-                voucher.RedeemedAt = DateTime.UtcNow; // Ustawiamy datę wykorzystania
+                voucher.RedeemedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
             }
         }
