@@ -5,8 +5,77 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:VoucherApp"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        Title="Voucher App" Height="700" Width="800"
+        Loaded="{x:Static Member=local:MainViewModel.LoadVouchersCommand}">
 
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 1. Formularz dodawania vouchera -->
+        <GroupBox Header="Dodaj nowy voucher" Grid.Row="0" Padding="10">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Kod:" VerticalAlignment="Center" Margin="5"/>
+                    <TextBox Grid.Column="1" Text="{Binding NewVoucherCode, UpdateSourceTrigger=PropertyChanged}" Margin="5"/>
+                    <TextBlock Grid.Column="2" Text="Opis:" VerticalAlignment="Center" Margin="5"/>
+                    <TextBox Grid.Column="3" Text="{Binding NewVoucherDescription, UpdateSourceTrigger=PropertyChanged}" Margin="5"/>
+                    <Button Grid.Column="4" Content="Dodaj" Command="{Binding AddVoucherCommand}" Padding="10,5" Margin="5"/>
+                </Grid>
+            </StackPanel>
+        </GroupBox>
+
+        <!-- 2. Lista i filtrowanie voucherów -->
+        <GroupBox Header="Lista voucherów" Grid.Row="1" Padding="10" Margin="0,10,0,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"
+                         d:Text="Wpisz kod, aby filtrować..."/>
+
+                <DataGrid Grid.Row="1" ItemsSource="{Binding FilteredVouchers}" AutoGenerateColumns="False" IsReadOnly="True">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Kod" Binding="{Binding Code}" Width="*"/>
+                        <DataGridTextColumn Header="Opis" Binding="{Binding Description}" Width="2*"/>
+                        <DataGridCheckBoxColumn Header="Wykorzystany" Binding="{Binding IsUsed}" Width="Auto"/>
+                        <DataGridTemplateColumn Header="Akcje">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <!-- 4. Przycisk do wykorzystania vouchera -->
+                                    <Button Content="Wykorzystaj" 
+                                            Command="{Binding DataContext.UseVoucherCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}"
+                                            IsEnabled="{Binding IsUsed, Converter={StaticResource InverseBooleanConverter}}"
+                                            Padding="5"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </GroupBox>
+
+        <!-- Pasek statusu -->
+        <Border Grid.Row="2" Background="{Binding StatusColor}" CornerRadius="5" Padding="10" Margin="0,10,0,0">
+            <TextBlock Text="{Binding StatusMessage}" Foreground="White" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center"/>
+        </Border>
     </Grid>
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <!-- Prosty konwerter do wyłączania przycisku, jeśli voucher jest już wykorzystany -->
+        <local:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
+    </Window.Resources>
 </Window>
