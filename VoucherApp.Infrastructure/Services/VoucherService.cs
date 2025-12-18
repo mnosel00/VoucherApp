@@ -56,6 +56,34 @@ namespace VoucherApp.Infrastructure.Services
             return voucher;
         }
 
+        public async Task<IEnumerable<Voucher>> CreateMultipleVouchersAsync(string description, int count)
+        {
+            var rewardTemplate = await _context.RewardTemplates.FirstOrDefaultAsync(rt => rt.Name == description);
+            if (rewardTemplate == null)
+            {
+                rewardTemplate = new RewardTemplate { Name = description };
+                _context.RewardTemplates.Add(rewardTemplate);
+            }
+
+            var newVouchers = new List<Voucher>();
+            for (int i = 0; i < count; i++)
+            {
+                var code = await GenerateUniqueShortCodeAsync();
+                var voucher = new Voucher
+                {
+                    ShortCode = code,
+                    RewardTemplate = rewardTemplate,
+                    QrCodeContent = Guid.NewGuid(),
+                    IsRedeemed = false
+                };
+                newVouchers.Add(voucher);
+            }
+
+            _context.Vouchers.AddRange(newVouchers);
+            await _context.SaveChangesAsync();
+            return newVouchers;
+        }
+
         public async Task<IEnumerable<Voucher>> GetAllVouchersAsync()
         {
             return await _context.Vouchers.Include(v => v.RewardTemplate).OrderByDescending(v => v.Id).ToListAsync();

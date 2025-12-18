@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -30,7 +31,10 @@ namespace VoucherApp
         [ObservableProperty]
         private string _newVoucherDescription;
 
-        public IAsyncRelayCommand AddVoucherCommand { get; }
+        [ObservableProperty]
+        private int _numberOfVouchers = 1;
+
+        public IAsyncRelayCommand AddMultipleVouchersCommand { get; }
         public IAsyncRelayCommand<Voucher> UseVoucherCommand { get; }
         public IAsyncRelayCommand LoadVouchersCommand { get; }
 
@@ -39,7 +43,7 @@ namespace VoucherApp
         {
             _voucherService = voucherService;
 
-            AddVoucherCommand = new AsyncRelayCommand(AddVoucherAsync);
+            AddMultipleVouchersCommand = new AsyncRelayCommand(AddMultipleVouchersAsync);
             UseVoucherCommand = new AsyncRelayCommand<Voucher>(UseVoucherAsync);
             LoadVouchersCommand = new AsyncRelayCommand(LoadVouchersAsync);
 
@@ -76,7 +80,7 @@ namespace VoucherApp
             }
         }
 
-        private async Task AddVoucherAsync()
+        private async Task AddMultipleVouchersAsync()
         {
             if (string.IsNullOrWhiteSpace(NewVoucherDescription))
             {
@@ -85,24 +89,33 @@ namespace VoucherApp
                 return;
             }
 
-            var newVoucher = await _voucherService.CreateVoucherAsync(NewVoucherDescription);
-            if (newVoucher != null)
+            if (NumberOfVouchers <= 0)
             {
-                await LoadVouchersAsync(); 
-                StatusMessage = $"Dodano nowy voucher: {newVoucher.ShortCode}";
-                StatusColor = Brushes.Blue;
-                NewVoucherDescription = string.Empty;
-            }
-            else
-            {
-                StatusMessage = $"Nie udało się utworzyć vouchera.";
+                StatusMessage = "Liczba voucherów musi być większa od zera!";
                 StatusColor = Brushes.Red;
+                return;
             }
+
+            await _voucherService.CreateMultipleVouchersAsync(NewVoucherDescription, NumberOfVouchers);
+            await LoadVouchersAsync();
+            StatusMessage = $"Dodano {NumberOfVouchers} nowych voucherów.";
+            StatusColor = Brushes.Blue;
+            NewVoucherDescription = string.Empty;
+            NumberOfVouchers = 1;
         }
 
         private async Task UseVoucherAsync(Voucher voucher)
         {
             if (voucher == null) return;
+
+            // Sprawdzenie warunku daty
+            if (DateTime.Now >= new DateTime(2027, 1, 1))
+            {
+                StatusMessage = "Nie można wykorzystać vouchera po 1 stycznia 2027 roku.";
+                StatusColor = Brushes.Red;
+                MessageBox.Show(StatusMessage, "Voucher przeterminowany", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
 
             var result = MessageBox.Show($"Czy na pewno chcesz wykorzystać voucher '{voucher.ShortCode}'?", "Potwierdzenie", MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (result == MessageBoxResult.Yes)

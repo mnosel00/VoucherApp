@@ -8,6 +8,7 @@ namespace VoucherApp.Core.Interfaces
     {
         Task<Voucher> GetVoucherByCodeAsync(string code);
         Task<Voucher> CreateVoucherAsync(string description);
+        Task<IEnumerable<Voucher>> CreateMultipleVouchersAsync(string description, int count);
         Task UseVoucherAsync(int voucherId);
         Task<IEnumerable<Voucher>> GetAllVouchersAsync();
     }

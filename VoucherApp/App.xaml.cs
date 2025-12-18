@@ -13,6 +13,7 @@ namespace VoucherApp
     public partial class App : Application
     {
         private readonly IHost _host;
+        private IServiceScope? _scope; // Pole do przechowywania zasięgu
 
         public App()
         {
@@ -30,28 +31,43 @@ namespace VoucherApp
                 options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
 
             services.AddScoped<IVoucherService, VoucherService>();
+            // Przywracamy Transient, ponieważ cyklem życia zarządza teraz _scope
             services.AddTransient<MainViewModel>();
             services.AddTransient<MainWindow>();
         }
 
         protected override async void OnStartup(StartupEventArgs e)
         {
-            await _host.StartAsync();
-
-            using (var scope = _host.Services.CreateScope())
+            try
             {
-                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                await _host.StartAsync();
+
+                // Utwórz i przypisz zasięg do pola klasy, aby nie został zniszczony
+                _scope = _host.Services.CreateScope();
+            
+                var context = _scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 context.Database.Migrate();
 
-                var mainWindow = _host.Services.GetRequiredService<MainWindow>();
+                var mainWindow = _scope.ServiceProvider.GetRequiredService<MainWindow>();
                 mainWindow.Show();
-            }
 
-            base.OnStartup(e);
+                base.OnStartup(e);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Wystąpił krytyczny błąd podczas uruchamiania aplikacji:\n\n{ex.ToString()}", 
+                                "Błąd Aplikacji", 
+                                MessageBoxButton.OK, 
+                                MessageBoxImage.Error);
+                Shutdown();
+            }
         }
 
         protected override async void OnExit(ExitEventArgs e)
         {
+            // Prawidłowe zwolnienie zasobów
+            _scope?.Dispose(); 
+
             using (_host)
             {
                 await _host.StopAsync(TimeSpan.FromSeconds(5));
